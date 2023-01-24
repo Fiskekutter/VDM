@@ -1,0 +1,33 @@
+class Stock is subclass of GLOBAL
+
+instance variables
+
+name : String;
+price : priceofstock;
+
+types
+
+public priceofstock = nat;
+
+operations
+
+public Stock: String * priceofstock ==> Stock
+Stock (n,p) == (
+    name := n;
+    price := p;
+);
+
+pure public GetPrice: () ==> priceofstock
+GetPrice() ==
+    return price;
+
+public SetPrice: priceofstock ==> ()
+SetPrice(p) ==
+    price := p
+    post price >= 0;
+
+pure public GetName: () ==> String
+GetName() ==
+    return name;
+
+end Stock

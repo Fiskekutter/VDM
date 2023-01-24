@@ -1,0 +1,22 @@
+class GLOBAL
+types
+
+public stockAmount = nat1;
+public ID = token;
+
+public stockholding ::
+        stock : Stock
+        amount : stockAmount;
+
+public order :: 
+        orderid : ID
+        stock : Stock
+        amount : stockAmount
+        signal : orderType;
+
+public String = seq of char;
+public orderType = <SELL> | <BUY>;
+
+end GLOBAL
+
+

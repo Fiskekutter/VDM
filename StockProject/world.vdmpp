@@ -1,0 +1,157 @@
+class world is subclass of GLOBAL
+
+values
+simTime : nat = 6;
+
+
+instance variables
+
+public static timer : Timer := new Timer();
+
+s1 : Stock := new Stock("Apple", 55);
+s2 : Stock := new Stock("FaceBook", 80);
+s3 : Stock := new Stock("Tesla", 30);
+s4 : Stock := new Stock("Amazon", 100);
+b1 : broker := new broker({s1,s2,s3,s4});
+
+u1 : user := new user(mk_token(1), "Bob",b1);
+u2 : user := new user(mk_token(2), "Bobby",b1);
+u3 : user := new user(mk_token(3), "Bobson", b1);
+
+operations
+
+public Run: () ==> ()
+Run() == ( 
+    
+    u1.SetBalance(20000);
+    u2.SetBalance(20000);
+    u3.SetBalance(20000);
+
+    u1.AddStockToHolding(mk_stockholding(s1, 30));
+    u1.AddStockToHolding(mk_stockholding(s2, 30));
+    
+    u2.AddStockToHolding(mk_stockholding(s1, 30));
+    u2.AddStockToHolding(mk_stockholding(s3, 30));
+
+    u3.AddStockToHolding(mk_stockholding(s3, 30));
+    u3.AddStockToHolding(mk_stockholding(s2, 30));
+    
+    b1.AddUser(u1);
+    b1.AddUser(u2);
+    b1.AddUser(u3);
+
+    while not isFinished()
+    do(
+        IO`print("step : ");
+        IO`print(timer.GetTime());
+        IO`print("\n");
+
+        printStockHolding();
+
+        cases timer.GetTime():
+        1 -> Run1(),
+        2 -> Run2(),
+        3 -> Run3(),
+        4 -> Run4(),
+        5 -> Run5(),
+        6 -> Run6()
+        end;
+        
+        timer.StepTime()
+    )
+);
+
+public isFinished: () ==> bool  
+isFinished() ==
+    return not timer.GetTime() <= simTime;
+
+public printStockHolding: () ==> ()
+printStockHolding() == (
+    IO`print("User 1 StockHolding: ");
+    IO`print(printSeq(u1.GetStockHolding()));
+    IO`print("\n");
+
+    IO`print("User 2 StockHolding: ");
+    IO`print(printSeq(u2.GetStockHolding()));
+    IO`print("\n");
+
+    IO`print("User 3 StockHolding: ");
+    IO`print(printSeq(u3.GetStockHolding()));
+    IO`print("\n");
+
+    IO`print("User 1 tradeHistory: ");
+    IO`print(printSeq(u1.GetTradeHistory()));
+    IO`print("\n");
+
+    IO`print("User 2 tradeHistory: ");
+    IO`print(printSeq(u2.GetTradeHistory()));
+    IO`print("\n");
+
+    IO`print("User 3 tradeHistory: ");
+    IO`print(printSeq(u3.GetTradeHistory()));
+    IO`print("\n");
+
+    IO`print("Stocks: ");
+    IO`print(b1.GetStocks());
+    IO`print("\n");
+);
+
+printSeq: seq of stockholding ==> ()
+printSeq (s) == (
+    for elem in s 
+    do (IO`print(elem);
+        IO`print("\n"))
+);
+
+printSeq: seq of order ==> ()
+printSeq (s) == (
+    for elem in s 
+    do (IO`print(elem);
+        IO`print("\n"))
+);
+
+public Run1: () ==> ()
+Run1 () == (
+    u1.SellStock(mk_order(mk_token(1), s1, 30, <SELL>)); 
+    u1.SellStock(mk_order(mk_token(2), s2, 30, <SELL>));
+    u1.BuyStock(mk_order(mk_token(3), s3, 30, <BUY>));
+);
+
+public Run2: () ==> ()
+Run2 () == (
+    u2.BuyStock(mk_order(mk_token(4), s1, 30, <BUY>)); 
+    u2.BuyStock(mk_order(mk_token(5), s2, 30, <BUY>));
+    u2.SellStock(mk_order(mk_token(6), s3, 30, <SELL>));
+);
+
+public Run3: () ==> ()
+Run3 () == (
+    u3.BuyStock(mk_order(mk_token(7), s3, 30, <BUY>)); 
+    u3.BuyStock(mk_order(mk_token(8), s3, 30, <BUY>));
+    u3.SellStock(mk_order(mk_token(9), s2, 30, <SELL>));
+);
+
+public Run4: () ==> ()
+Run4 () == (
+    u1.BuyStock(mk_order(mk_token(10), new Stock("Apple", 50), 30, <BUY>)); 
+    u1.SellStock(mk_order(mk_token(11), new Stock("Tesla", 40), 30, <SELL>));
+    u1.BuyStock(mk_order(mk_token(12), new Stock("Facebook", 70), 30, <BUY>));
+);
+
+public Run5: () ==> ()
+Run5 () == (
+    u2.BuyStock(mk_order(mk_token(13), new Stock("Tesla", 40), 30, <BUY>)); 
+    u2.BuyStock(mk_order(mk_token(14), new Stock("Apple", 50), 30, <BUY>));
+    u2.BuyStock(mk_order(mk_token(15), new Stock("Facebook", 70), 30, <BUY>));
+);
+
+public Run6: () ==> ()
+Run6 () == (
+    u1.BuyStock(mk_order(mk_token(16), new Stock("Tesla", 40), 30, <BUY>)); 
+    u1.BuyStock(mk_order(mk_token(17), new Stock("Apple", 50), 30, <BUY>));
+    u1.BuyStock(mk_order(mk_token(18), new Stock("Facebook", 70), 30, <BUY>));
+);
+
+
+
+end world

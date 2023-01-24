@@ -1,0 +1,103 @@
+class user is subclass of GLOBAL
+
+types
+
+instance variables
+
+balance : nat := 0;
+stockHolding : seq of stockholding := [];
+tradeHistory : seq of order := [];
+userID : ID;
+name : String;
+Broker : broker;
+
+
+functions
+
+operations
+
+public user: ID * String * broker ==> user
+user(i,n, b) == (
+    name := n;
+    userID := i;
+    Broker := b;
+);
+
+pure public GetTradeHistory: () ==> seq of order
+GetTradeHistory() ==
+    return tradeHistory;
+
+pure public GetName: () ==> String
+GetName() ==
+    return name;
+
+pure public GetBalance: () ==> nat
+GetBalance() ==
+    return balance;
+
+public SetBalance: nat ==> ()
+SetBalance(b) == (
+    if balance = 0
+    then balance := b
+    else balance := balance + b;
+);
+
+pure public GetID: () ==> ID
+GetID() ==
+    return userID;
+
+pure public GetStockHolding: () ==> seq of stockholding
+GetStockHolding() == 
+    return stockHolding;
+
+public AddStockToHolding: stockholding ==> ()
+AddStockToHolding(s) == (
+    stockHolding := stockHolding ^ [s];
+)
+post [p | p in set inds stockHolding & stockHolding(p) = s] <> [];
+
+public RemoveStockFromHolding: stockholding ==> ()
+RemoveStockFromHolding(s) == (
+    let q in set inds stockHolding be st stockHolding(q).stock.GetName() = s.stock.GetName() and stockHolding(q).amount = s.amount
+    in stockHolding := stockHolding(1,...,q-1) ^ stockHolding(q+1,...,len stockHolding);
+);
+
+public AddTradeToTradeHistory: order ==> ()
+AddTradeToTradeHistory(o) == (
+    tradeHistory := tradeHistory ^ [o];
+)
+pre [p | p in set inds tradeHistory & tradeHistory(p) = o] = []
+post [p | p in set inds tradeHistory & tradeHistory(p) = o] <> [];
+
+public BuyStock: order ==> ()
+BuyStock(o) ==
+    if balance > o.stock.GetPrice()*o.amount
+    then BuyStockToHolding(o)
+    else IO`print("Not enough balance to buy stock \n");
+
+BuyStockToHolding: order ==> ()
+BuyStockToHolding(o) == (
+    balance := balance-o.stock.GetPrice()*o.amount;
+    Broker.AddMarketOrder(user`self, o)
+);
+
+public SellStock: order ==> ()
+SellStock(o) == (
+    let p = FindOneStockInHolding(o, stockHolding)
+    in 
+    if p <> []
+    then SellStockFromHolding(o, p)
+    else return IO`print("Can't sell a stock that is not there \n");
+);
+
+FindOneStockInHolding: order * seq of stockholding ==> seq of stockholding
+FindOneStockInHolding(o, sh) == (
+    return [p | p in seq sh & o.stock.GetName() = p.stock.GetName() and o.amount = p.amount]
+);
+
+SellStockFromHolding: order * seq of stockholding ==> ()
+SellStockFromHolding(o, sh) == (
+    Broker.AddMarketOrder(user`self, o);
+    RemoveStockFromHolding(hd sh);
+);
+end user

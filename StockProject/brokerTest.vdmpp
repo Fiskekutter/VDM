@@ -1,0 +1,92 @@
+class brokerTest is subclass of TestCase, GLOBAL
+
+instance variables
+
+
+
+operations
+
+protected runTest : () ==> ()
+runTest() ==
+(   
+    brokerTest1();
+    brokerTest2();
+);
+
+protected brokerTest1 : () ==> ()
+brokerTest1() == (
+
+    dcl sto1 : Stock := new Stock("test123", 123);
+    dcl sto2 : Stock := new Stock("test12", 12);
+
+    dcl br : broker := new broker({sto1,sto2});
+    dcl use1 : user := new user(mk_token(1), "test", br);
+    dcl use2 : user := new user(mk_token(2), "test1", br);
+
+
+    use1.SetBalance(50000);
+    assertTrue(use1.GetBalance() >= 50000);
+    use2.SetBalance(50000);
+    assertTrue(use2.GetBalance() >= 50000);
+
+    use1.AddStockToHolding(mk_stockholding(sto1, 1));
+    assertTrue(use1.GetStockHolding() = [mk_stockholding(sto1, 1)]);
+    use2.AddStockToHolding(mk_stockholding(sto2, 1));
+    assertTrue(use2.GetStockHolding() = [mk_stockholding(sto2, 1)]);
+
+    br.AddUser(use1);
+    assertTrue(use1 in set br.GetUsers());
+    br.AddUser(use2);
+    assertTrue(use2 in set br.GetUsers());
+
+    use1.BuyStock(mk_order(mk_token(1), sto2, 1, <BUY>));
+    assertTrue(br.GetBuyOrders() = [mk_order(mk_token(1), sto2, 1, <BUY>)]);
+    use2.SellStock(mk_order(mk_token(2), sto2, 1, <SELL>));
+    assertTrue(br.GetSellOrders() = []);
+    assertTrue(br.GetBuyOrders() = []);
+
+    assertTrue(use1.GetStockHolding() = [mk_stockholding(sto1, 1), mk_stockholding(sto2, 1)]);
+);
+
+protected brokerTest2 : () ==> ()
+brokerTest2() == (
+
+    dcl sto1 : Stock := new Stock("test123", 123);
+    dcl sto2 : Stock := new Stock("test12", 12);
+    dcl br : broker := new broker({sto1, sto2});
+    dcl use1 : user := new user(mk_token(1), "test", br);
+    dcl use2 : user := new user(mk_token(2), "test1", br);
+
+    use1.SetBalance(50000);
+    assertTrue(use1.GetBalance() >= 50000);
+    use2.SetBalance(50000);
+    assertTrue(use2.GetBalance() >= 50000);
+
+    use1.AddStockToHolding(mk_stockholding(sto1, 1));
+    assertTrue(use1.GetStockHolding() = [mk_stockholding(sto1, 1)]);
+    use1.AddStockToHolding(mk_stockholding(sto2, 1));
+    assertTrue(use1.GetStockHolding() = [mk_stockholding(sto1, 1), mk_stockholding(sto2, 1)]);
+
+    br.AddUser(use1);
+    assertTrue(use1 in set br.GetUsers());
+    br.AddUser(use2);
+    assertTrue(use2 in set br.GetUsers());
+
+    use1.SellStock(mk_order(mk_token(3), sto1, 1, <SELL>));
+    assertTrue(br.GetSellOrders() = [mk_order(mk_token(3), sto1, 1, <SELL>)]);
+    use1.SellStock(mk_order(mk_token(4), sto2, 1, <SELL>));
+    assertTrue(br.GetSellOrders() = [mk_order(mk_token(3), sto1, 1, <SELL>), mk_order(mk_token(4), sto2, 1, <SELL>)]);
+
+    use2.BuyStock(mk_order(mk_token(5), sto1, 1, <BUY>));
+    assertTrue(br.GetSellOrders() = [mk_order(mk_token(4), sto2, 1, <SELL>)]);
+    use2.BuyStock(mk_order(mk_token(6), sto2, 1, <BUY>));
+    assertTrue(br.GetSellOrders() = []);
+    assertTrue(br.GetBuyOrders() = []);
+
+    assertTrue(use2.GetStockHolding() = [mk_stockholding(sto1, 1), mk_stockholding(sto2, 1)]);
+);
+
+
+
+
+end brokerTest

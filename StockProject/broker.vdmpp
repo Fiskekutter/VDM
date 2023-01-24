@@ -1,0 +1,262 @@
+class broker is subclass of GLOBAL
+
+types
+
+public userOrder = map user to set of order;
+
+instance variables
+
+stocks : set of Stock := {};
+users : set of user := {};
+
+usersSellOrders : userOrder := {|->};
+usersBuyOrders : userOrder := {|->};
+
+sellOrders : seq of order := [];
+buyOrders : seq of order := [];
+
+inv forall x,y in set stocks & x <> y => x.GetName() <> y.GetName();
+inv forall x,y in set users & x <> y => x.GetID() <> y.GetID();
+
+inv forall x,y in seq sellOrders & x <> y => x.orderid <> y.orderid;
+inv forall x,y in seq buyOrders & x <> y => x.orderid <> y.orderid;
+
+functions
+
+public setToseq: set of order -> seq of order
+setToseq(s) ==
+    if s = {}
+    then []
+    else let o in set s
+    in [o] ^ setToseq(s\{o})
+measure card s;
+
+public setTosequser: set of user -> seq of user
+setTosequser(s) ==
+    if s = {}
+    then []
+    else let o in set s
+    in [o] ^ setTosequser(s\{o})
+measure card s;
+
+
+operations
+
+public broker: set of Stock ==> broker
+broker(sos) == (
+    stocks := sos;
+);
+
+public AddStock: Stock ==> ()
+AddStock(s) == 
+    stocks :=  stocks union {s}
+    pre s not in set stocks
+    post s in set stocks;
+
+pure public GetStocks: () ==> set of Stock
+GetStocks() ==
+    return stocks;
+
+pure public GetSellOrders: () ==> seq of order
+GetSellOrders() ==
+    return sellOrders;
+
+pure public GetBuyOrders: () ==> seq of order
+GetBuyOrders() ==
+    return buyOrders;
+
+pure public GetUsers: () ==> set of user
+GetUsers() ==
+    return users;
+
+pure public CheckSpecificUser: user ==> bool
+CheckSpecificUser(u) ==
+    return u in set users;
+
+public AddUser: user ==> ()
+AddUser(us) == (
+    users :=  users union {us};
+    usersBuyOrders := usersBuyOrders munion {us|->{}};
+    usersSellOrders := usersSellOrders munion {us|->{}};
+)
+pre us not in set users
+post us in set users and usersBuyOrders(us) = {} and usersSellOrders(us) = {};
+
+pure public GetCurrentUserSellOrders: user ==> set of order
+GetCurrentUserSellOrders(u) == 
+    return usersSellOrders(u);
+
+pure public GetCurrentUserBuyOrders: user ==> set of order
+GetCurrentUserBuyOrders(u) == 
+    return usersBuyOrders(u);
+
+pure public GetMarketOrders: () ==> userOrder * userOrder
+GetMarketOrders() ==
+    return mk_(usersBuyOrders,usersSellOrders);
+
+public AddMarketOrder: user * order ==> ()
+    AddMarketOrder(i,o) == (  ( (
+    if CheckMarketOrders(i,o)
+    then (i.AddTradeToTradeHistory(o);
+        return)
+    );
+    if o.signal = <SELL>
+    then (sellOrders := sellOrders ^ [o];
+        AddUserSellOrder(i,o))
+    else (buyOrders := buyOrders ^ [o];
+        AddUserBuyOrder(i,o)); 
+    );
+);
+
+public AddUserSellOrder: user * order ==> ()
+AddUserSellOrder(i,o) ==
+    let
+    oldOrders = usersSellOrders(i),
+    newOrders = oldOrders union {o}
+    in
+    usersSellOrders := usersSellOrders ++ {i|->newOrders}
+    pre o not in set usersSellOrders(i)
+    post o in set usersSellOrders(i);
+
+
+public AddUserBuyOrder: user * order ==> ()
+AddUserBuyOrder(i,o) == 
+    let
+    oldOrders = usersBuyOrders(i),
+    newOrders = oldOrders union {o}
+    in
+    usersBuyOrders := usersBuyOrders ++ {i|->newOrders}
+    pre o not in set usersBuyOrders(i)
+    post o in set usersBuyOrders(i);
+
+
+public CheckMarketOrders: user * order ==> bool
+CheckMarketOrders(i,o) == (
+    if o.signal = <SELL>
+    then return CheckBuyOrders(i,o)
+    else return CheckSellOrders(i,o)
+);
+
+public CheckBuyOrders: user * order ==> bool
+CheckBuyOrders(i,o) == (
+    let Orders = [e | e in seq buyOrders & 
+        e.stock.GetName() = o.stock.GetName() and e.stock.GetPrice() = o.stock.GetPrice() and e.amount = o.amount]
+    in
+    if Orders <> []
+    then let validOrders = RemoveIneligibleOrders(setToseq(elems Orders 
+                            \ (elems Orders inter usersBuyOrders(i))), hd Orders)
+        in
+        if validOrders <> []
+        then return ExecuteBuyOrder(hd validOrders, o, i)
+        else return validOrders <> []
+    else return Orders <> []
+);
+
+public CheckSellOrders: user * order ==> bool
+CheckSellOrders(i, o) == (
+    let Orders = [e | e in seq sellOrders & e.stock.GetName() = o.stock.GetName() and e.stock.GetPrice() = o.stock.GetPrice() and e.amount = o.amount]
+    in
+    if Orders <> []
+    then let validOrders = RemoveIneligibleOrders(setToseq(elems Orders \ (elems Orders inter usersSellOrders(i))), hd Orders)
+        in
+        if validOrders <> []
+        then return ExecuteSellOrder(hd validOrders, o, i)
+        else return validOrders <> []
+    else return Orders <> []
+);
+
+public ExecuteBuyOrder: order * order * user ==> bool
+ExecuteBuyOrder(so, o, u) == (
+    UpdateStockPrice(so);
+    RemoveBuyOrder(so);
+    let a = FindUserWithOrderid(usersBuyOrders,so)
+    in(
+    RemoveBuyOrderFromMarketOrders(so, a);
+    a.AddTradeToTradeHistory(so);
+    u.SetBalance(o.stock.GetPrice()*o.amount);
+    a.AddStockToHolding(mk_stockholding(so.stock, so.amount)));
+    return not exists x,y in seq buyOrders & x.orderid = so.orderid and y.orderid = o.orderid
+);
+
+public ExecuteSellOrder: order * order * user ==> bool
+ExecuteSellOrder(so, o, u) == (
+    UpdateStockPrice(so);
+    RemoveSellOrder(so);
+    let a = FindUserWithOrderid(usersSellOrders, so)
+    in(
+    RemoveSellOrderFromMarketOrders(so, a);
+    a.AddTradeToTradeHistory(so);
+    a.SetBalance(so.stock.GetPrice()*so.amount);
+    u.AddStockToHolding(mk_stockholding(o.stock,o.amount)));
+    return not exists x,y in seq sellOrders & x.orderid = so.orderid and y.orderid = o.orderid
+);
+
+public UpdateStockPrice: order ==> ()
+UpdateStockPrice(so) == (
+    let a = {p | p in set stocks & p.GetName() = so.stock.GetName()}
+    in
+    stocks := stocks \ a;
+    stocks := stocks union {so.stock};
+)
+post so.stock in set stocks;
+
+public RemoveBuyOrder: order ==> ()
+RemoveBuyOrder(so) == (
+    let q in set inds buyOrders be st buyOrders(q).orderid = so.orderid
+    in buyOrders := buyOrders(1,...,q-1) ^ buyOrders(q+1,...,len buyOrders);
+)
+post {p | p in set inds buyOrders & buyOrders(p).orderid = so.orderid} = {};
+
+public RemoveSellOrder: order ==> ()
+RemoveSellOrder(so) == (
+    let q in set inds sellOrders be st sellOrders(q).orderid = so.orderid
+    in sellOrders := sellOrders(1,...,q-1) ^ sellOrders(q+1,...,len sellOrders);
+)
+post {p | p in set inds sellOrders & sellOrders(p).orderid = so.orderid} = {};
+
+public RemoveBuyOrderFromMarketOrders: order * user ==> ()
+RemoveBuyOrderFromMarketOrders(o, u) == (
+    let
+    oldOrders = usersBuyOrders(u),
+    newOrders = oldOrders \ {o}
+    in
+    usersBuyOrders := usersBuyOrders ++ {u|->newOrders};
+)
+pre o in set usersBuyOrders(u)
+post o not in set usersBuyOrders(u);
+
+public RemoveSellOrderFromMarketOrders: order * user ==> ()
+RemoveSellOrderFromMarketOrders(o, u) == (
+    let
+    oldOrders = usersSellOrders(u),
+    newOrders = oldOrders \ {o}
+    in
+    usersSellOrders := usersSellOrders ++ {u|->newOrders};
+)
+pre o in set usersSellOrders(u)
+post o not in set usersSellOrders(u);
+
+public FindUserWithOrderid: userOrder * order ==> user
+FindUserWithOrderid(uo, o) == (
+    return hd setTosequser((dom (uo :> {p | p in set rng uo & o in set p})))  
+);
+
+Remove: seq of order * order ==> seq of order
+Remove (s, ot) == (
+    dcl seqo : seq of order := [];
+    for elemw in s do
+        if elemw <> ot
+        then seqo := seqo ^ [elemw];
+    return seqo;
+);
+
+RemoveIneligibleOrders: seq of order * order ==> seq of order
+RemoveIneligibleOrders (s, o) == (
+    dcl seqo : seq of order := [];
+    for elem in s do
+        if elem.stock.GetPrice() = o.stock.GetPrice() and elem.stock.GetName() = o.stock.GetName()
+        then seqo := seqo ^ [elem];
+    return seqo;
+);
+
+end broker

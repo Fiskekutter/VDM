@@ -1,0 +1,18 @@
+class systemTest
+
+operations
+
+public Execute : () ==> ()
+Execute() ==
+    let ts : TestSuite = new TestSuite(),
+    Testresult = new TestResult()
+    in
+    (ts.addTest(new brokerTest());
+    ts.run(Testresult);
+    IO`println(Testresult.toString()););
+
+end systemTest
+
+
+
+
